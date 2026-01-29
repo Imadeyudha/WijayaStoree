@@ -819,6 +819,9 @@
                     <div class="autocomplete-results" id="autocompleteResults"></div>
                 </div>
                 <div class="col-3 text-end">
+                    <button class="icon-btn me-2" id="loginBtn">
+                        <i class="bi bi-person-circle"></i>
+                    </button>
                     <button class="icon-btn me-2" id="cartBtn">
                         <i class="bi bi-cart3"></i>
                         <span class="badge-notification" id="cartBadge">0</span>
@@ -1234,7 +1237,71 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Register Modal -->
+    <div class="modal fade" id="registerModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Daftar Akun</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nama Lengkap</label>
+                        <input type="text" class="form-control" id="registerName" placeholder="Masukkan nama lengkap">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="registerEmail" placeholder="Masukkan email">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" id="registerUsername" placeholder="Masukkan username">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" id="registerPassword" placeholder="Masukkan password">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Konfirmasi Password</label>
+                        <input type="password" class="form-control" id="registerConfirmPassword" placeholder="Konfirmasi password">
+                    </div>
+                    <button class="btn btn-primary w-100" onclick="register()">Daftar</button>
+                    <div class="text-center mt-3">
+                        <small class="text-muted">Sudah punya akun? <a href="#" onclick="showLoginFromRegister()">Login</a></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Login</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" id="loginUsername" placeholder="Masukkan username">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" id="loginPassword" placeholder="Masukkan password">
+                    </div>
+                    <button class="btn btn-primary w-100" onclick="login()">Login</button>
+                    <div class="text-center mt-3">
+                        <small class="text-muted">Belum punya akun? <a href="#" onclick="showRegisterFromLogin()">Daftar</a></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
@@ -1441,6 +1508,8 @@
         let comparisonList = [];
         let selectedPaymentMethod = null;
         let currentPage = 'home';
+        let isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+        let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
         
         document.addEventListener('DOMContentLoaded', function() {
             initTheme();
@@ -1448,6 +1517,8 @@
             renderRecentlyViewed();
             updateCartBadge();
             initEventListeners();
+            updateHeaderUserStatus();
+            checkAuthOnLoad();
             startBannerRotation();
             startCountdown();
             registerServiceWorker();
@@ -1790,20 +1861,29 @@
                 showToast('Keranjang masih kosong!');
                 return;
             }
-            
+
+            // Check if user is logged in
+            if (!isLoggedIn) {
+                showToast('Silakan login terlebih dahulu untuk melanjutkan pembayaran');
+                bootstrap.Modal.getInstance(document.getElementById('cartModal')).hide();
+                const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+                loginModal.show();
+                return;
+            }
+
             bootstrap.Modal.getInstance(document.getElementById('cartModal')).hide();
-            
+
             document.getElementById('checkoutStep1').style.display = 'block';
             document.getElementById('checkoutStep2').style.display = 'none';
             document.getElementById('checkoutStep3').style.display = 'none';
-            
+
             document.getElementById('step1').classList.add('active');
             document.getElementById('step2').classList.remove('active', 'completed');
             document.getElementById('step3').classList.remove('active', 'completed');
-            
+
             const modal = new bootstrap.Modal(document.getElementById('checkoutModal'));
             modal.show();
-            
+
             addActivity('Memulai proses checkout', 'bi-cart-check');
         }
         
@@ -2254,11 +2334,12 @@
             document.getElementById('addToCartBtn').addEventListener('click', addToCart);
             document.getElementById('compareBtn').addEventListener('click', showComparison);
             document.getElementById('cartBtn').addEventListener('click', showCart);
+            document.getElementById('loginBtn').addEventListener('click', showLoginModal);
             document.getElementById('floatingChat').addEventListener('click', function() {
                 showToast('Live chat akan segera tersedia!');
                 addActivity('Membuka live chat', 'bi-chat-dots');
             });
-            
+
             let searchTimeout;
             document.getElementById('searchInput').addEventListener('input', function(e) {
                 clearTimeout(searchTimeout);
@@ -2266,7 +2347,7 @@
                     searchProducts(e.target.value);
                 }, 300);
             });
-            
+
             document.addEventListener('click', function(e) {
                 const autocomplete = document.getElementById('autocompleteResults');
                 const searchInput = document.getElementById('searchInput');
@@ -2274,6 +2355,155 @@
                     autocomplete.classList.remove('show');
                 }
             });
+        }
+
+        function showLoginModal() {
+            if (isLoggedIn) {
+                // Show logout confirmation
+                if (confirm('Apakah Anda ingin logout?')) {
+                    logout();
+                }
+            } else {
+                const modal = new bootstrap.Modal(document.getElementById('loginModal'));
+                modal.show();
+            }
+        }
+
+        function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            // Simple hardcoded authentication
+            if (username === 'admin' && password === 'admin') {
+                isLoggedIn = true;
+                currentUser = { username: username };
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+
+                bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+                updateHeaderUserStatus();
+                showToast(`Selamat datang, ${username}!`);
+                addActivity('Login berhasil', 'bi-person-check');
+            } else {
+                showToast('Username atau password salah!');
+            }
+        }
+
+        function logout() {
+            isLoggedIn = false;
+            currentUser = null;
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('currentUser');
+
+            updateHeaderUserStatus();
+            showToast('Anda telah logout');
+            addActivity('Logout', 'bi-box-arrow-right');
+        }
+
+        function updateHeaderUserStatus() {
+            const loginBtn = document.getElementById('loginBtn');
+            if (isLoggedIn && currentUser) {
+                loginBtn.innerHTML = `<i class="bi bi-person-check"></i> ${currentUser.username}`;
+            } else {
+                loginBtn.innerHTML = '<i class="bi bi-person-circle"></i>';
+            }
+        }
+
+        function register() {
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const username = document.getElementById('registerUsername').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+
+            if (!name || !email || !username || !password || !confirmPassword) {
+                showToast('Mohon lengkapi semua field');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showToast('Password dan konfirmasi password tidak cocok');
+                return;
+            }
+
+            if (password.length < 6) {
+                showToast('Password minimal 6 karakter');
+                return;
+            }
+
+            // Get existing users
+            let users = JSON.parse(localStorage.getItem('users')) || [];
+
+            // Check if username already exists
+            if (users.find(u => u.username === username)) {
+                showToast('Username sudah digunakan');
+                return;
+            }
+
+            // Check if email already exists
+            if (users.find(u => u.email === email)) {
+                showToast('Email sudah terdaftar');
+                return;
+            }
+
+            // Add new user
+            const newUser = {
+                id: Date.now(),
+                name: name,
+                email: email,
+                username: username,
+                password: password
+            };
+
+            users.push(newUser);
+            localStorage.setItem('users', JSON.stringify(users));
+
+            // Auto login after registration
+            isLoggedIn = true;
+            currentUser = {
+                id: newUser.id,
+                name: newUser.name,
+                email: newUser.email,
+                username: newUser.username
+            };
+
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+
+            bootstrap.Modal.getInstance(document.getElementById('registerModal')).hide();
+            updateHeaderUserStatus();
+            showToast(`Selamat datang, ${name}!`);
+            addActivity('Registrasi berhasil', 'bi-person-plus');
+
+            // Clear form
+            document.getElementById('registerName').value = '';
+            document.getElementById('registerEmail').value = '';
+            document.getElementById('registerUsername').value = '';
+            document.getElementById('registerPassword').value = '';
+            document.getElementById('registerConfirmPassword').value = '';
+        }
+
+        function showRegisterFromLogin() {
+            bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+            const registerModal = new bootstrap.Modal(document.getElementById('registerModal'));
+            registerModal.show();
+        }
+
+        function showLoginFromRegister() {
+            bootstrap.Modal.getInstance(document.getElementById('registerModal')).hide();
+            const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+            loginModal.show();
+        }
+
+        function checkAuthOnLoad() {
+            if (!isLoggedIn) {
+                // Show register modal for new users
+                const registerModal = new bootstrap.Modal(document.getElementById('registerModal'), {
+                    backdrop: 'static',
+                    keyboard: false
+                });
+                registerModal.show();
+            }
         }
         
         function registerServiceWorker() {
